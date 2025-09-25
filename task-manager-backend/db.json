@@ -1,0 +1,30 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Learn React Native",
+      "completed": false,
+      "userId": 1
+    },
+    {
+      "id": 2,
+      "title": "Build a demo app",
+      "completed": false,
+      "userId": 1
+    },
+    {
+      "id": 3,
+      "title": "Show it to manager",
+      "completed": false,
+      "userId": 1
+    },
+    {
+      "id": 4,
+      "title": "Buy groceries",
+      "completed": false,
+      "userId": 1,
+      "createdAt": "2025-09-25T12:58:14.903Z"
+    }
+  ],
+  "nextId": 5
+}

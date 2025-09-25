@@ -1,6 +1,8 @@
 // server.js - Simple Node.js/Express Backend
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const PORT = 3001;
 
@@ -8,31 +10,52 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
-// In-memory storage (use database in production)
-let tasks = [
-  { id: 1, title: 'Learn React Native', completed: false, userId: 1 },
-  { id: 2, title: 'Build a demo app', completed: false, userId: 1 },
-  { id: 3, title: 'Show it to manager', completed: false, userId: 1 },
-];
+// Database file path
+const DB_FILE = path.join(__dirname, 'db.json');
 
-let nextId = 4;
+// Helper functions to read and write to JSON file
+const readDB = () => {
+  try {
+    const data = fs.readFileSync(DB_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error reading database:', error);
+    // Return default data if file doesn't exist or is corrupted
+    return {
+      tasks: [],
+      nextId: 1
+    };
+  }
+};
+
+const writeDB = (data) => {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Error writing to database:', error);
+    return false;
+  }
+};
 
 // Routes
 
 // GET /api/tasks - Get all tasks
 app.get('/api/tasks', (req, res) => {
   console.log('GET /api/tasks - Fetching all tasks');
+  const db = readDB();
   res.json({
     success: true,
-    data: tasks,
-    count: tasks.length
+    data: db.tasks,
+    count: db.tasks.length
   });
 });
 
 // GET /api/tasks/:id - Get specific task
 app.get('/api/tasks/:id', (req, res) => {
   const taskId = parseInt(req.params.id);
-  const task = tasks.find(t => t.id === taskId);
+  const db = readDB();
+  const task = db.tasks.find(t => t.id === taskId);
   
   if (!task) {
     return res.status(404).json({
@@ -59,15 +82,25 @@ app.post('/api/tasks', (req, res) => {
     });
   }
 
+  const db = readDB();
   const newTask = {
-    id: nextId++,
+    id: db.nextId,
     title: title.trim(),
     completed: false,
     userId,
     createdAt: new Date().toISOString()
   };
 
-  tasks.push(newTask);
+  db.tasks.push(newTask);
+  db.nextId++;
+  
+  if (!writeDB(db)) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save task'
+    });
+  }
+
   console.log('POST /api/tasks - New task created:', newTask);
   
   res.status(201).json({
@@ -82,7 +115,8 @@ app.put('/api/tasks/:id', (req, res) => {
   const taskId = parseInt(req.params.id);
   const { title, completed } = req.body;
   
-  const taskIndex = tasks.findIndex(t => t.id === taskId);
+  const db = readDB();
+  const taskIndex = db.tasks.findIndex(t => t.id === taskId);
   
   if (taskIndex === -1) {
     return res.status(404).json({
@@ -93,19 +127,26 @@ app.put('/api/tasks/:id', (req, res) => {
 
   // Update task
   if (title !== undefined) {
-    tasks[taskIndex].title = title.trim();
+    db.tasks[taskIndex].title = title.trim();
   }
   if (completed !== undefined) {
-    tasks[taskIndex].completed = completed;
+    db.tasks[taskIndex].completed = completed;
   }
   
-  tasks[taskIndex].updatedAt = new Date().toISOString();
+  db.tasks[taskIndex].updatedAt = new Date().toISOString();
   
-  console.log(`PUT /api/tasks/${taskId} - Task updated:`, tasks[taskIndex]);
+  if (!writeDB(db)) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update task'
+    });
+  }
+  
+  console.log(`PUT /api/tasks/${taskId} - Task updated:`, db.tasks[taskIndex]);
   
   res.json({
     success: true,
-    data: tasks[taskIndex],
+    data: db.tasks[taskIndex],
     message: 'Task updated successfully'
   });
 });
@@ -113,7 +154,8 @@ app.put('/api/tasks/:id', (req, res) => {
 // DELETE /api/tasks/:id - Delete task
 app.delete('/api/tasks/:id', (req, res) => {
   const taskId = parseInt(req.params.id);
-  const taskIndex = tasks.findIndex(t => t.id === taskId);
+  const db = readDB();
+  const taskIndex = db.tasks.findIndex(t => t.id === taskId);
   
   if (taskIndex === -1) {
     return res.status(404).json({
@@ -122,7 +164,15 @@ app.delete('/api/tasks/:id', (req, res) => {
     });
   }
 
-  const deletedTask = tasks.splice(taskIndex, 1)[0];
+  const deletedTask = db.tasks.splice(taskIndex, 1)[0];
+  
+  if (!writeDB(db)) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete task'
+    });
+  }
+  
   console.log(`DELETE /api/tasks/${taskId} - Task deleted:`, deletedTask);
   
   res.json({
