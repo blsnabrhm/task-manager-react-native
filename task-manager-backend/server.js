@@ -1,4 +1,4 @@
-// server.js - Simple Node.js/Express Backend
+// server.js - Simple Node.js/Express Backend with Authentication
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -20,10 +20,11 @@ const readDB = () => {
     return JSON.parse(data);
   } catch (error) {
     console.error('Error reading database:', error);
-    // Return default data if file doesn't exist or is corrupted
     return {
+      users: [],
       tasks: [],
-      nextId: 1
+      nextTaskId: 1,
+      nextUserId: 1
     };
   }
 };
@@ -38,42 +39,153 @@ const writeDB = (data) => {
   }
 };
 
-// Routes
+// Authentication Routes
 
-// GET /api/tasks - Get all tasks
-app.get('/api/tasks', (req, res) => {
-  console.log('GET /api/tasks - Fetching all tasks');
+// POST /api/auth/login - User login
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Username and password are required'
+    });
+  }
+
   const db = readDB();
+  const user = db.users.find(u => u.username === username && u.password === password);
+  
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid username or password'
+    });
+  }
+
+  console.log(`User ${user.name} logged in successfully`);
   res.json({
     success: true,
-    data: db.tasks,
-    count: db.tasks.length
+    message: 'Login successful',
+    data: {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      email: user.email
+    }
   });
 });
 
-// GET /api/tasks/:id - Get specific task
+// POST /api/auth/register - User registration
+app.post('/api/auth/register', (req, res) => {
+  const { username, password, name, email } = req.body;
+  
+  if (!username || !password || !name) {
+    return res.status(400).json({
+      success: false,
+      message: 'Username, password, and name are required'
+    });
+  }
+
+  const db = readDB();
+  
+  // Check if username already exists
+  const existingUser = db.users.find(u => u.username === username);
+  if (existingUser) {
+    return res.status(409).json({
+      success: false,
+      message: 'Username already exists'
+    });
+  }
+
+  // Create new user
+  const newUser = {
+    id: db.nextUserId,
+    username,
+    password,
+    name,
+    email: email || '',
+    createdAt: new Date().toISOString()
+  };
+
+  db.users.push(newUser);
+  db.nextUserId++;
+  
+  if (writeDB(db)) {
+    console.log(`New user ${name} registered successfully`);
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        id: newUser.id,
+        username: newUser.username,
+        name: newUser.name,
+        email: newUser.email
+      }
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register user'
+    });
+  }
+});
+
+// Task Routes (Updated for user-specific tasks)
+
+// GET /api/tasks - Get tasks for specific user
+app.get('/api/tasks', (req, res) => {
+  const userId = req.query.userId;
+  
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required'
+    });
+  }
+
+  console.log(`GET /api/tasks - Fetching tasks for user ${userId}`);
+  const db = readDB();
+  const userTasks = db.tasks.filter(task => task.userId === parseInt(userId));
+  
+  res.json({
+    success: true,
+    data: userTasks,
+    count: userTasks.length
+  });
+});
+
+// GET /api/tasks/:id - Get specific task for user
 app.get('/api/tasks/:id', (req, res) => {
   const taskId = parseInt(req.params.id);
+  const userId = req.query.userId;
+  
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required'
+    });
+  }
+
   const db = readDB();
-  const task = db.tasks.find(t => t.id === taskId);
+  const task = db.tasks.find(t => t.id === taskId && t.userId === parseInt(userId));
   
   if (!task) {
     return res.status(404).json({
       success: false,
-      message: 'Task not found'
+      message: 'Task not found or access denied'
     });
   }
   
-  console.log(`GET /api/tasks/${taskId} - Task found`);
+  console.log(`GET /api/tasks/${taskId} - Task found for user ${userId}`);
   res.json({
     success: true,
     data: task
   });
 });
 
-// POST /api/tasks - Create new task
+// POST /api/tasks - Create new task for user
 app.post('/api/tasks', (req, res) => {
-  const { title, userId = 1 } = req.body;
+  const { title, userId } = req.body;
   
   if (!title || title.trim() === '') {
     return res.status(400).json({
@@ -82,111 +194,137 @@ app.post('/api/tasks', (req, res) => {
     });
   }
 
-  const db = readDB();
-  const newTask = {
-    id: db.nextId,
-    title: title.trim(),
-    completed: false,
-    userId,
-    createdAt: new Date().toISOString()
-  };
-
-  db.tasks.push(newTask);
-  db.nextId++;
-  
-  if (!writeDB(db)) {
-    return res.status(500).json({
+  if (!userId) {
+    return res.status(400).json({
       success: false,
-      message: 'Failed to save task'
+      message: 'User ID is required'
     });
   }
 
-  console.log('POST /api/tasks - New task created:', newTask);
+  const db = readDB();
   
-  res.status(201).json({
-    success: true,
-    data: newTask,
-    message: 'Task created successfully'
-  });
+  // Verify user exists
+  const user = db.users.find(u => u.id === parseInt(userId));
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  const newTask = {
+    id: db.nextTaskId,
+    title: title.trim(),
+    completed: false,
+    userId: parseInt(userId),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  db.tasks.push(newTask);
+  db.nextTaskId++;
+
+  if (writeDB(db)) {
+    console.log(`POST /api/tasks - New task created for user ${userId}: ${title}`);
+    res.status(201).json({
+      success: true,
+      message: 'Task created successfully',
+      data: newTask
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create task'
+    });
+  }
 });
 
-// PUT /api/tasks/:id - Update task
+// PUT /api/tasks/:id - Update task for user
 app.put('/api/tasks/:id', (req, res) => {
   const taskId = parseInt(req.params.id);
-  const { title, completed } = req.body;
-  
+  const { title, completed, userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required'
+    });
+  }
+
   const db = readDB();
-  const taskIndex = db.tasks.findIndex(t => t.id === taskId);
+  const taskIndex = db.tasks.findIndex(t => t.id === taskId && t.userId === parseInt(userId));
   
   if (taskIndex === -1) {
     return res.status(404).json({
       success: false,
-      message: 'Task not found'
+      message: 'Task not found or access denied'
     });
   }
 
   // Update task
-  if (title !== undefined) {
-    db.tasks[taskIndex].title = title.trim();
-  }
-  if (completed !== undefined) {
-    db.tasks[taskIndex].completed = completed;
-  }
-  
+  if (title !== undefined) db.tasks[taskIndex].title = title.trim();
+  if (completed !== undefined) db.tasks[taskIndex].completed = completed;
   db.tasks[taskIndex].updatedAt = new Date().toISOString();
-  
-  if (!writeDB(db)) {
-    return res.status(500).json({
+
+  if (writeDB(db)) {
+    console.log(`PUT /api/tasks/${taskId} - Task updated for user ${userId}`);
+    res.json({
+      success: true,
+      message: 'Task updated successfully',
+      data: db.tasks[taskIndex]
+    });
+  } else {
+    res.status(500).json({
       success: false,
       message: 'Failed to update task'
     });
   }
-  
-  console.log(`PUT /api/tasks/${taskId} - Task updated:`, db.tasks[taskIndex]);
-  
-  res.json({
-    success: true,
-    data: db.tasks[taskIndex],
-    message: 'Task updated successfully'
-  });
 });
 
-// DELETE /api/tasks/:id - Delete task
+// DELETE /api/tasks/:id - Delete task for user
 app.delete('/api/tasks/:id', (req, res) => {
   const taskId = parseInt(req.params.id);
+  const userId = req.query.userId;
+
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required'
+    });
+  }
+
   const db = readDB();
-  const taskIndex = db.tasks.findIndex(t => t.id === taskId);
+  const taskIndex = db.tasks.findIndex(t => t.id === taskId && t.userId === parseInt(userId));
   
   if (taskIndex === -1) {
     return res.status(404).json({
       success: false,
-      message: 'Task not found'
+      message: 'Task not found or access denied'
     });
   }
 
   const deletedTask = db.tasks.splice(taskIndex, 1)[0];
-  
-  if (!writeDB(db)) {
-    return res.status(500).json({
+
+  if (writeDB(db)) {
+    console.log(`DELETE /api/tasks/${taskId} - Task deleted for user ${userId}`);
+    res.json({
+      success: true,
+      message: 'Task deleted successfully',
+      data: deletedTask
+    });
+  } else {
+    res.status(500).json({
       success: false,
       message: 'Failed to delete task'
     });
   }
-  
-  console.log(`DELETE /api/tasks/${taskId} - Task deleted:`, deletedTask);
-  
-  res.json({
-    success: true,
-    data: deletedTask,
-    message: 'Task deleted successfully'
-  });
 });
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    message: 'Server is running!',
+    message: 'Server is running',
     timestamp: new Date().toISOString()
   });
 });
@@ -195,13 +333,13 @@ app.get('/api/health', (req, res) => {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found'
+    message: 'Endpoint not found'
   });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('Server error:', err);
   res.status(500).json({
     success: false,
     message: 'Internal server error'
@@ -210,13 +348,14 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📋 API endpoints:`);
-  console.log(`   GET    /api/tasks`);
-  console.log(`   POST   /api/tasks`);
-  console.log(`   PUT    /api/tasks/:id`);
-  console.log(`   DELETE /api/tasks/:id`);
-  console.log(`   GET    /api/health`);
+  console.log(`Task Manager Server running on http://localhost:${PORT}`);
+  console.log('Available endpoints:');
+  console.log('- POST /api/auth/login');
+  console.log('- POST /api/auth/register');
+  console.log('- GET /api/tasks?userId=:id');
+  console.log('- POST /api/tasks');
+  console.log('- PUT /api/tasks/:id');
+  console.log('- DELETE /api/tasks/:id?userId=:id');
 });
 
 // Export for testing

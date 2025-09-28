@@ -1,33 +1,50 @@
 // src/components/WorkspaceHeader.tsx - Workspace Header with Theme Toggle
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { lightTheme, darkTheme } from '../styles/colors';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 
-interface WorkspaceHeaderProps {
-  isDarkMode: boolean;
-  onToggleTheme: () => void;
-}
+const WorkspaceHeader: React.FC = () => {
+  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
 
-const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ isDarkMode, onToggleTheme }) => {
-  const theme = isDarkMode ? darkTheme : lightTheme;
-  
   return (
-    <View style={[styles.header, { backgroundColor: theme.header.background, borderBottomColor: theme.header.border }]}>
-      <Text style={[styles.headerTitle, { color: theme.header.text }]}>My Workspace</Text>
-      
-      <TouchableOpacity 
-        style={[styles.themeToggle, { backgroundColor: theme.background.card, borderColor: theme.border.light }]}
-        onPress={onToggleTheme}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.themeIcon, { color: theme.text.primary }]}>
-          {isDarkMode ? '☀️' : '🌙'}
-        </Text>
-        <Text style={[styles.themeText, { color: theme.text.secondary }]}>
-          {isDarkMode ? 'Light' : 'Dark'}
-        </Text>
-      </TouchableOpacity>
-    </View>
+    <>
+      <StatusBar 
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.background.primary}
+      />
+      <View style={[styles.header, { backgroundColor: theme.background.primary, borderBottomColor: theme.border.light }]}>
+        <View style={styles.leftSection}>
+          <Text style={[styles.title, { color: theme.text.primary }]}>
+            {user?.name ? `${user.name}'s Workspace` : 'My Workspace'}
+          </Text>
+        </View>
+        
+        <View style={styles.rightSection}>
+          <TouchableOpacity
+            style={[styles.themeToggle, { backgroundColor: theme.background.card }]}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.themeIcon, { color: theme.text.primary }]}>
+              {isDarkMode ? '☀️' : '🌙'}
+            </Text>
+            <Text style={[styles.themeText, { color: theme.text.secondary }]}>
+              {isDarkMode ? 'Light' : 'Dark'}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.logoutButton, { backgroundColor: theme.danger }]}
+            onPress={logout}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </>
   );
 };
 
@@ -36,19 +53,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 35,
+    paddingBottom: 15,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: 15, // Account for status bar
     borderBottomWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  headerTitle: {
-    fontSize: 38,
+  leftSection: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 36,
     fontWeight: 'bold',
+  },
+  rightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   themeToggle: {
     flexDirection: 'row',
@@ -56,13 +76,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1,
+    gap: 6,
   },
   themeIcon: {
     fontSize: 16,
-    marginRight: 6,
   },
   themeText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  logoutButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  logoutText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '500',
   },

@@ -1,116 +1,109 @@
 // src/screens/TasksScreen.tsx - Main Tasks Screen
 import React, { useState, useEffect } from 'react';
-import {
-  StyleSheet,
-  FlatList,
+import { 
+  View, 
+  StyleSheet, 
+  FlatList, 
   Alert,
-  SafeAreaView,
-  StatusBar,
+  SafeAreaView 
 } from 'react-native';
-import { Task } from '../types';
-import { apiService } from '../services/apiService';
-import { useTheme } from '../contexts/ThemeContext';
 import { 
   TaskItem, 
   LoadingSpinner, 
   Header, 
   AddTaskForm, 
   EmptyState,
-  WorkspaceHeader
+  WorkspaceHeader 
 } from '../components';
+import { Task } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import * as apiService from '../services/apiService';
 
 const TasksScreen: React.FC = () => {
-  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { theme } = useTheme();
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [newTaskTitle, setNewTaskTitle] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [isAddingTask, setIsAddingTask] = useState<boolean>(false);
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (user) {
+      fetchTasks();
+    }
+  }, [user]);
 
-  const loadTasks = async (): Promise<void> => {
+  const fetchTasks = async (): Promise<void> => {
+    if (!user) return;
+    
     try {
       setLoading(true);
-      const fetchedTasks = await apiService.getTasks();
-      setTasks(fetchedTasks);
+      const response = await apiService.getTasks(user.id);
+      setTasks(response.data);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load tasks. Please check your internet connection.');
-      console.error('Load tasks error:', error);
+      console.error('Error fetching tasks:', error);
+      Alert.alert('Error', 'Failed to fetch tasks. Please try again.');
     } finally {
       setLoading(false);
-      setInitialLoading(false);
     }
   };
 
   const handleAddTask = async (): Promise<void> => {
-    const title = newTaskTitle.trim();
-    if (!title) {
-      Alert.alert('Error', 'Please enter a task title');
-      return;
-    }
-
+    if (!user || !newTaskTitle.trim()) return;
+    
     try {
-      setLoading(true);
-      const newTask = await apiService.createTask(title);
-      setTasks(prevTasks => [newTask, ...prevTasks]);
+      setIsAddingTask(true);
+      const response = await apiService.createTask(newTaskTitle.trim(), user.id);
+      setTasks(prevTasks => [...prevTasks, response.data]);
       setNewTaskTitle('');
-      // Optional success feedback
-      // Alert.alert('Success', 'Task added successfully!');
     } catch (error) {
+      console.error('Error adding task:', error);
       Alert.alert('Error', 'Failed to add task. Please try again.');
-      console.error('Add task error:', error);
     } finally {
-      setLoading(false);
+      setIsAddingTask(false);
     }
   };
 
-  const handleToggleTask = async (taskId: number, completed: boolean): Promise<void> => {
-    // Optimistic update
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId ? { ...task, completed } : task
-      )
-    );
-
-    try {
-      await apiService.updateTask(taskId, { completed });
-    } catch (error) {
-      // Revert on error
-      setTasks(prevTasks =>
-        prevTasks.map(task =>
-          task.id === taskId ? { ...task, completed: !completed } : task
-        )
-      );
-      Alert.alert('Error', 'Failed to update task. Please try again.');
-      console.error('Toggle task error:', error);
-    }
-  };
-
-  const handleDeleteTask = (taskId: number): void => {
+  const handleToggleTask = async (taskId: number): Promise<void> => {
+    if (!user) return;
+    
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
+    try {
+      const response = await apiService.updateTask(
+        taskId, 
+        { completed: !task.completed }, 
+        user.id
+      );
+      setTasks(prevTasks =>
+        prevTasks.map(t => t.id === taskId ? response.data : t)
+      );
+    } catch (error) {
+      console.error('Error toggling task:', error);
+      Alert.alert('Error', 'Failed to update task. Please try again.');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: number): Promise<void> => {
+    if (!user) return;
+    
     Alert.alert(
       'Delete Task',
-      `Are you sure you want to delete "${task.title}"?`,
+      'Are you sure you want to delete this task?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            // Optimistic update
-            setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
-
             try {
-              await apiService.deleteTask(taskId);
+              await apiService.deleteTask(taskId, user.id);
+              setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
             } catch (error) {
-              // Revert on error
-              setTasks(prevTasks => [...prevTasks, task]);
+              console.error('Error deleting task:', error);
               Alert.alert('Error', 'Failed to delete task. Please try again.');
-              console.error('Delete task error:', error);
             }
           },
         },
@@ -118,46 +111,47 @@ const TasksScreen: React.FC = () => {
     );
   };
 
-  const completedCount = tasks.filter(task => task.completed).length;
+  const completedTasksCount = tasks.filter(task => task.completed).length;
 
-  if (initialLoading) {
-    return <LoadingSpinner message="Loading your tasks..." />;
+  if (loading) {
+    return <LoadingSpinner />;
   }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background.primary }]}>
-      <StatusBar 
-        barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={theme.header.background} 
-      />
+      <WorkspaceHeader />
       
-      <WorkspaceHeader isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
-      
-      <Header tasksCount={tasks.length} completedCount={completedCount} />
+      <View style={styles.content}>
+        <Header 
+          tasksCount={tasks.length} 
+          completedCount={completedTasksCount} 
+        />
+        
+        <AddTaskForm
+          newTaskTitle={newTaskTitle}
+          setNewTaskTitle={setNewTaskTitle}
+          onAddTask={handleAddTask}
+          loading={isAddingTask}
+        />
 
-      <AddTaskForm
-        newTaskTitle={newTaskTitle}
-        setNewTaskTitle={setNewTaskTitle}
-        onAddTask={handleAddTask}
-        loading={loading}
-      />
-
-      <FlatList
-        data={tasks}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <TaskItem
-            task={item}
-            onToggle={handleToggleTask}
-            onDelete={handleDeleteTask}
+        {tasks.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <FlatList
+            data={tasks}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <TaskItem
+                task={item}
+                onToggle={handleToggleTask}
+                onDelete={handleDeleteTask}
+              />
+            )}
+            style={styles.taskList}
+            showsVerticalScrollIndicator={false}
           />
         )}
-        style={styles.tasksList}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={<EmptyState />}
-        refreshing={loading && tasks.length > 0}
-        onRefresh={loadTasks}
-      />
+      </View>
     </SafeAreaView>
   );
 };
@@ -166,9 +160,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  tasksList: {
+  content: {
     flex: 1,
-    paddingHorizontal: 20,
+    padding: 20,
+  },
+  taskList: {
+    flex: 1,
+    marginTop: 10,
   },
 });
 

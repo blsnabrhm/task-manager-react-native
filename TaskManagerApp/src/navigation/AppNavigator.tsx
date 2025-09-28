@@ -1,14 +1,26 @@
 // src/navigation/AppNavigator.tsx - Navigation Configuration
 import React from 'react';
-import { TasksScreen } from '../screens';
 import { ThemeProvider } from '../contexts/ThemeContext';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { TasksScreen, LoginScreen } from '../screens';
+import { LoadingSpinner } from '../components';
 
-// For now, we're just showing the TasksScreen directly
-// When you add React Navigation later, this will handle routing
+const AuthenticatedApp: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  return isAuthenticated ? <TasksScreen /> : <LoginScreen />;
+};
+
 const AppNavigator: React.FC = () => {
   return (
     <ThemeProvider>
-      <TasksScreen />
+      <AuthProvider>
+        <AuthenticatedApp />
+      </AuthProvider>
     </ThemeProvider>
   );
 };

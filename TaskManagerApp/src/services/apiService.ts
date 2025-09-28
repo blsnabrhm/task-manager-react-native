@@ -1,75 +1,72 @@
 // src/services/apiService.ts - API Service Layer
-import { Task, ApiResponse } from '../types';
+import { Task, ApiResponse, LoginRequest, RegisterRequest, AuthResponse } from '../types';
 
 // API configuration
 const API_BASE_URL = 'http://localhost:3001/api'; // Change to your backend URL
 // For physical device, use your computer's IP: 'http://192.168.1.XXX:3001/api'
 
-class ApiService {
-  private async handleResponse<T>(response: Response): Promise<T> {
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Network error' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
-    }
-    return response.json();
+const handleResponse = async (response: Response) => {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || 'Something went wrong');
   }
+  return data;
+};
 
-  async getTasks(): Promise<Task[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/tasks`);
-      const result: ApiResponse<Task[]> = await this.handleResponse(response);
-      return result.data;
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-      throw error;
-    }
-  }
+// Authentication API calls
+export const login = async (credentials: LoginRequest): Promise<AuthResponse> => {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(credentials),
+  });
+  return handleResponse(response);
+};
 
-  async createTask(title: string): Promise<Task> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/tasks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title }),
-      });
-      const result: ApiResponse<Task> = await this.handleResponse(response);
-      return result.data;
-    } catch (error) {
-      console.error('Error creating task:', error);
-      throw error;
-    }
-  }
+export const register = async (userData: RegisterRequest): Promise<AuthResponse> => {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(userData),
+  });
+  return handleResponse(response);
+};
 
-  async updateTask(id: number, updates: Partial<Task>): Promise<Task> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
-      const result: ApiResponse<Task> = await this.handleResponse(response);
-      return result.data;
-    } catch (error) {
-      console.error('Error updating task:', error);
-      throw error;
-    }
-  }
+// Updated task API calls to include userId
+export const getTasks = async (userId: number): Promise<ApiResponse<Task[]>> => {
+  const response = await fetch(`${API_BASE_URL}/tasks?userId=${userId}`);
+  return handleResponse(response);
+};
 
-  async deleteTask(id: number): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
-        method: 'DELETE',
-      });
-      await this.handleResponse(response);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      throw error;
-    }
-  }
-}
+export const createTask = async (title: string, userId: number): Promise<ApiResponse<Task>> => {
+  const response = await fetch(`${API_BASE_URL}/tasks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title, userId }),
+  });
+  return handleResponse(response);
+};
 
-export const apiService = new ApiService();
+export const updateTask = async (id: number, updates: Partial<Task>, userId: number): Promise<ApiResponse<Task>> => {
+  const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ...updates, userId }),
+  });
+  return handleResponse(response);
+};
+
+export const deleteTask = async (id: number, userId: number): Promise<ApiResponse<Task>> => {
+  const response = await fetch(`${API_BASE_URL}/tasks/${id}?userId=${userId}`, {
+    method: 'DELETE',
+  });
+  return handleResponse(response);
+};

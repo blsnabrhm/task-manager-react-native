@@ -1,31 +1,48 @@
 {
-  "tasks": [
+  "users": [
     {
       "id": 1,
-      "title": "Learn React Native",
-      "completed": false,
-      "userId": 1,
-      "updatedAt": "2025-09-25T14:05:45.163Z"
+      "username": "john_doe",
+      "password": "password123",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "createdAt": "2025-01-01T00:00:00.000Z"
     },
     {
       "id": 2,
-      "title": "Build a demo app",
+      "username": "jane_smith",
+      "password": "password456",
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Complete project documentation",
       "completed": false,
-      "userId": 1
+      "userId": 1,
+      "createdAt": "2025-01-01T10:00:00.000Z",
+      "updatedAt": "2025-01-01T10:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "title": "Review code changes",
+      "completed": true,
+      "userId": 1,
+      "createdAt": "2025-01-01T11:00:00.000Z",
+      "updatedAt": "2025-01-01T11:30:00.000Z"
     },
     {
       "id": 3,
-      "title": "Show it to manager",
+      "title": "Plan team meeting",
       "completed": false,
-      "userId": 1
-    },
-    {
-      "id": 4,
-      "title": "Buy groceries",
-      "completed": false,
-      "userId": 1,
-      "createdAt": "2025-09-25T12:58:14.903Z"
+      "userId": 2,
+      "createdAt": "2025-01-01T12:00:00.000Z",
+      "updatedAt": "2025-01-01T12:00:00.000Z"
     }
   ],
-  "nextId": 5
+  "nextTaskId": 4,
+  "nextUserId": 3
 }
