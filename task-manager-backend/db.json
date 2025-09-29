@@ -58,6 +58,15 @@
       "createdAt": "2025-09-29T02:46:29.563Z",
       "updatedAt": "2025-09-29T02:46:34.830Z",
       "dueDate": "2025-09-29T02:46:27.826Z"
+    },
+    {
+      "id": 5,
+      "title": "Renew Vehicle Insurance",
+      "completed": false,
+      "userId": 3,
+      "createdAt": "2025-09-29T07:22:20.446Z",
+      "updatedAt": "2025-09-29T07:22:20.446Z",
+      "dueDate": "2025-09-29T07:22:19.052Z"
     }
   ],
   "notes": [
@@ -86,7 +95,7 @@
       "updatedAt": "2025-01-01T15:00:00.000Z"
     }
   ],
-  "nextTaskId": 5,
+  "nextTaskId": 6,
   "nextUserId": 4,
   "nextNoteId": 4
 }
