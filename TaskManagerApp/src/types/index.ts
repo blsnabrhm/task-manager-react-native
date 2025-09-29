@@ -6,6 +6,7 @@ export interface Task {
   userId: number;
   createdAt?: string;
   updatedAt?: string;
+  dueDate?: string; // ISO date string for task due date
 }
 
 export interface ApiResponse<T> {
@@ -48,4 +49,43 @@ export interface AuthResponse {
   success: boolean;
   message: string;
   data?: User;
+}
+
+// Workspace App Types
+export interface WorkspaceApp {
+  id: string;
+  title: string;
+  description: string;
+  icon: string; // emoji or icon name
+  color: string;
+  route: string;
+  isEnabled: boolean;
+  category: 'productivity' | 'communication' | 'utility' | 'entertainment';
+}
+
+export interface AppTileProps {
+  app: WorkspaceApp;
+  onPress: (route: string) => void;
+}
+
+export interface DashboardSection {
+  id: string;
+  title: string;
+  apps: WorkspaceApp[];
+}
+
+// Notes Types
+export interface Note {
+  id: number;
+  title: string;
+  body: string;
+  userId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NoteTileProps {
+  note: Note;
+  onPress: (note: Note) => void;
+  onDelete: (id: number) => void;
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,22 @@ import {
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAnimation } from '../contexts/AnimationContext';
 import { login, register } from '../services/apiService';
 import { LoadingSpinner } from '../components';
 
 const LoginScreen: React.FC = () => {
   const { login: authLogin } = useAuth();
-  const { theme } = useTheme();
+  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { triggerFadeIn } = useAnimation();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    triggerFadeIn();
+  }, [triggerFadeIn]);
+
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -28,13 +36,16 @@ const LoginScreen: React.FC = () => {
   });
 
   const handleSubmit = async () => {
+    // Clear previous error
+    setErrorMessage('');
+
     if (!formData.username || !formData.password) {
-      Alert.alert('Error', 'Username and password are required');
+      setErrorMessage('Username and password are required');
       return;
     }
 
     if (!isLogin && !formData.name) {
-      Alert.alert('Error', 'Name is required for registration');
+      setErrorMessage('Name is required for registration');
       return;
     }
 
@@ -59,7 +70,7 @@ const LoginScreen: React.FC = () => {
         await authLogin(response.data);
       }
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
+      setErrorMessage(error instanceof Error ? error.message : 'Something went wrong');
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +78,7 @@ const LoginScreen: React.FC = () => {
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
+    setErrorMessage(''); // Clear error when switching modes
     setFormData({
       username: '',
       password: '',
@@ -85,6 +97,17 @@ const LoginScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.themeToggleContainer}>
+          <TouchableOpacity 
+            style={[styles.themeToggle, { backgroundColor: theme.background.card }]}
+            onPress={toggleTheme}
+          >
+            <Text style={[styles.themeToggleText, { color: theme.text.primary }]}>
+              {isDarkMode ? '☀️ Light' : '🌙 Dark'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.formContainer}>
           <Text style={[styles.title, { color: theme.text.primary }]}>
             {isLogin ? 'Welcome Back' : 'Create Account'}
@@ -103,7 +126,10 @@ const LoginScreen: React.FC = () => {
               placeholder="Username"
               placeholderTextColor={theme.text.secondary}
               value={formData.username}
-              onChangeText={(text) => setFormData({ ...formData, username: text })}
+              onChangeText={(text) => {
+                setFormData({ ...formData, username: text });
+                if (errorMessage) setErrorMessage(''); // Clear error when typing
+              }}
               autoCapitalize="none"
             />
 
@@ -146,9 +172,20 @@ const LoginScreen: React.FC = () => {
               placeholder="Password"
               placeholderTextColor={theme.text.secondary}
               value={formData.password}
-              onChangeText={(text) => setFormData({ ...formData, password: text })}
+              onChangeText={(text) => {
+                setFormData({ ...formData, password: text });
+                if (errorMessage) setErrorMessage(''); // Clear error when typing
+              }}
               secureTextEntry
             />
+
+            {errorMessage ? (
+              <View style={[styles.errorContainer, { backgroundColor: theme.danger + '15' }]}>
+                <Text style={[styles.errorText, { color: theme.danger }]}>
+                  {errorMessage}
+                </Text>
+              </View>
+            ) : null}
 
             <TouchableOpacity
               style={[styles.submitButton, { backgroundColor: theme.primary }]}
@@ -211,6 +248,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
   },
+  errorContainer: {
+    backgroundColor: '#fee',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fcc',
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
   submitButton: {
     borderRadius: 12,
     paddingVertical: 16,
@@ -229,6 +280,23 @@ const styles = StyleSheet.create({
   },
   toggleButtonText: {
     fontSize: 16,
+    fontWeight: '500',
+  },
+  themeToggleContainer: {
+    alignItems: 'flex-end',
+    width: '100%',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  themeToggle: {
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  themeToggleText: {
+    fontSize: 14,
     fontWeight: '500',
   },
 });

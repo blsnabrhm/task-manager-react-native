@@ -185,7 +185,7 @@ app.get('/api/tasks/:id', (req, res) => {
 
 // POST /api/tasks - Create new task for user
 app.post('/api/tasks', (req, res) => {
-  const { title, userId } = req.body;
+  const { title, userId, dueDate } = req.body;
   
   if (!title || title.trim() === '') {
     return res.status(400).json({
@@ -218,7 +218,8 @@ app.post('/api/tasks', (req, res) => {
     completed: false,
     userId: parseInt(userId),
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    dueDate: dueDate || null
   };
 
   db.tasks.push(newTask);
@@ -320,6 +321,152 @@ app.delete('/api/tasks/:id', (req, res) => {
   }
 });
 
+// Notes Routes
+
+// GET /api/notes - Get notes for specific user
+app.get('/api/notes', (req, res) => {
+  const { userId } = req.query;
+  
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required'
+    });
+  }
+
+  console.log(`GET /api/notes - Fetching notes for user ${userId}`);
+  
+  const db = readDB();
+  const userNotes = db.notes.filter(note => note.userId === parseInt(userId));
+  
+  res.json({
+    success: true,
+    data: userNotes,
+    count: userNotes.length
+  });
+});
+
+// POST /api/notes - Create new note
+app.post('/api/notes', (req, res) => {
+  const { title, body, userId } = req.body;
+  
+  if (!title || !body || !userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Title, body, and userId are required'
+    });
+  }
+
+  const db = readDB();
+  
+  const newNote = {
+    id: db.nextNoteId,
+    title,
+    body,
+    userId: parseInt(userId),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  db.notes.push(newNote);
+  db.nextNoteId++;
+
+  if (writeDB(db)) {
+    console.log(`POST /api/notes - Note created for user ${userId}`);
+    res.status(201).json({
+      success: true,
+      message: 'Note created successfully',
+      data: newNote
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create note'
+    });
+  }
+});
+
+// PUT /api/notes/:id - Update note
+app.put('/api/notes/:id', (req, res) => {
+  const noteId = parseInt(req.params.id);
+  const { title, body, userId } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required'
+    });
+  }
+
+  const db = readDB();
+  const noteIndex = db.notes.findIndex(note => note.id === noteId && note.userId === parseInt(userId));
+  
+  if (noteIndex === -1) {
+    return res.status(404).json({
+      success: false,
+      message: 'Note not found'
+    });
+  }
+
+  // Update note fields
+  if (title !== undefined) db.notes[noteIndex].title = title;
+  if (body !== undefined) db.notes[noteIndex].body = body;
+  db.notes[noteIndex].updatedAt = new Date().toISOString();
+
+  if (writeDB(db)) {
+    console.log(`PUT /api/notes/${noteId} - Note updated for user ${userId}`);
+    res.json({
+      success: true,
+      message: 'Note updated successfully',
+      data: db.notes[noteIndex]
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update note'
+    });
+  }
+});
+
+// DELETE /api/notes/:id - Delete note
+app.delete('/api/notes/:id', (req, res) => {
+  const noteId = parseInt(req.params.id);
+  const { userId } = req.query;
+  
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required'
+    });
+  }
+
+  const db = readDB();
+  const noteIndex = db.notes.findIndex(note => note.id === noteId && note.userId === parseInt(userId));
+  
+  if (noteIndex === -1) {
+    return res.status(404).json({
+      success: false,
+      message: 'Note not found'
+    });
+  }
+
+  const deletedNote = db.notes.splice(noteIndex, 1)[0];
+
+  if (writeDB(db)) {
+    console.log(`DELETE /api/notes/${noteId} - Note deleted for user ${userId}`);
+    res.json({
+      success: true,
+      message: 'Note deleted successfully',
+      data: deletedNote
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete note'
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
@@ -356,6 +503,10 @@ app.listen(PORT, () => {
   console.log('- POST /api/tasks');
   console.log('- PUT /api/tasks/:id');
   console.log('- DELETE /api/tasks/:id?userId=:id');
+  console.log('- GET /api/notes?userId=:id');
+  console.log('- POST /api/notes');
+  console.log('- PUT /api/notes/:id');
+  console.log('- DELETE /api/notes/:id?userId=:id');
 });
 
 // Export for testing

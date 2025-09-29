@@ -2,10 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
+  Text,
   StyleSheet, 
   FlatList, 
   Alert,
-  SafeAreaView 
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity
 } from 'react-native';
 import { 
   TaskItem, 
@@ -13,26 +16,54 @@ import {
   Header, 
   AddTaskForm, 
   EmptyState,
-  WorkspaceHeader 
+  LeftPanel
 } from '../components';
 import { Task } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAnimation } from '../contexts/AnimationContext';
 import * as apiService from '../services/apiService';
+import { formatLocalDate } from '../utils/dateUtils';
 
-const TasksScreen: React.FC = () => {
+interface TasksScreenProps {
+  navigation?: {
+    navigate: (screenName: string, params?: any) => void;
+    goBack: () => void;
+  };
+}
+
+const TasksScreen: React.FC<TasksScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { triggerSlideIn } = useAnimation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [newTaskTitle, setNewTaskTitle] = useState<string>('');
   const [isAddingTask, setIsAddingTask] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
+  const [leftPanelVisible, setLeftPanelVisible] = useState<boolean>(true);
 
   useEffect(() => {
     if (user) {
       fetchTasks();
     }
-  }, [user]);
+    triggerSlideIn('right');
+  }, [user, triggerSlideIn]);
+
+  useEffect(() => {
+    // Filter tasks based on selected date (using local timezone comparison)
+    if (selectedDate) {
+      const filtered = tasks.filter(task => {
+        if (!task.dueDate) return false;
+        const taskDate = new Date(task.dueDate);
+        return formatLocalDate(taskDate) === selectedDate;
+      });
+      setFilteredTasks(filtered);
+    } else {
+      setFilteredTasks(tasks);
+    }
+  }, [tasks, selectedDate]);
 
   const fetchTasks = async (): Promise<void> => {
     if (!user) return;
@@ -49,12 +80,12 @@ const TasksScreen: React.FC = () => {
     }
   };
 
-  const handleAddTask = async (): Promise<void> => {
+  const handleAddTask = async (dueDate?: string): Promise<void> => {
     if (!user || !newTaskTitle.trim()) return;
     
     try {
       setIsAddingTask(true);
-      const response = await apiService.createTask(newTaskTitle.trim(), user.id);
+      const response = await apiService.createTask(newTaskTitle.trim(), user.id, dueDate);
       setTasks(prevTasks => [...prevTasks, response.data]);
       setNewTaskTitle('');
     } catch (error) {
@@ -113,44 +144,105 @@ const TasksScreen: React.FC = () => {
 
   const completedTasksCount = tasks.filter(task => task.completed).length;
 
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(selectedDate === date ? '' : date); // Toggle selection
+  };
+
+  const handleToggleTaskComplete = (id: number, completed: boolean) => {
+    handleToggleTask(id);
+  };
+
+  const toggleLeftPanel = () => {
+    setLeftPanelVisible(!leftPanelVisible);
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background.primary }]}>
-      <WorkspaceHeader />
+      {/* Back Navigation Header */}
+      {navigation && (
+        <View style={[styles.navigationHeader, { backgroundColor: theme.background.card, borderBottomColor: theme.border.light }]}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={[styles.backButtonText, { color: theme.primary }]}>‹ Back to Workspace</Text>
+          </TouchableOpacity>
+          <Text style={[styles.screenTitle, { color: theme.text.primary }]}>Task Manager</Text>
+        </View>
+      )}
       
-      <View style={styles.content}>
-        <Header 
-          tasksCount={tasks.length} 
-          completedCount={completedTasksCount} 
-        />
-        
-        <AddTaskForm
-          newTaskTitle={newTaskTitle}
-          setNewTaskTitle={setNewTaskTitle}
-          onAddTask={handleAddTask}
-          loading={isAddingTask}
+      <View style={styles.mainContainer}>
+        {/* Left Panel */}
+        <LeftPanel 
+          isCollapsed={!leftPanelVisible}
+          onToggle={toggleLeftPanel}
+          tasks={tasks}
+          onDateSelect={handleDateSelect}
+          selectedDate={selectedDate}
+          onToggleTask={handleToggleTaskComplete}
+          onDeleteTask={handleDeleteTask}
         />
 
-        {tasks.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <FlatList
-            data={tasks}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <TaskItem
-                task={item}
-                onToggle={handleToggleTask}
-                onDelete={handleDeleteTask}
-              />
+        {/* Right Content Area */}
+        <View style={[
+          styles.rightContent, 
+          { marginLeft: leftPanelVisible ? 280 : 80 }
+        ]}>
+          <View style={styles.content}>
+            <Header 
+              tasksCount={tasks.length} 
+              completedCount={completedTasksCount} 
+            />
+            
+            <AddTaskForm
+              newTaskTitle={newTaskTitle}
+              setNewTaskTitle={setNewTaskTitle}
+              onAddTask={handleAddTask}
+              loading={isAddingTask}
+            />
+
+            {/* All Tasks or Filtered Tasks */}
+            {filteredTasks.length === 0 && !selectedDate ? (
+              <EmptyState />
+            ) : (
+              <ScrollView style={styles.tasksList} showsVerticalScrollIndicator={false}>
+                {selectedDate && (
+                  <View style={[styles.selectedDateHeader, { backgroundColor: theme.background.card }]}>
+                    <Text style={[styles.selectedDateTitle, { color: theme.text.primary }]}>
+                      Tasks for {new Date(selectedDate).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: new Date(selectedDate).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                      })}
+                    </Text>
+                    <Text style={[styles.selectedDateSubtitle, { color: theme.text.secondary }]}>
+                      {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
+                      {filteredTasks.filter(t => t.completed).length > 0 && 
+                        ` • ${filteredTasks.filter(t => t.completed).length} completed`}
+                    </Text>
+                  </View>
+                )}
+                
+                {filteredTasks.map((item) => (
+                  <TaskItem
+                    key={item.id.toString()}
+                    task={item}
+                    onToggle={handleToggleTaskComplete}
+                    onDelete={handleDeleteTask}
+                  />
+                ))}
+                
+                {selectedDate && filteredTasks.length === 0 && (
+                  <EmptyState />
+                )}
+              </ScrollView>
             )}
-            style={styles.taskList}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
+          </View>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -162,11 +254,73 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
+  },
+  mainContent: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  tabletLayout: {
+    flexDirection: 'row',
+  },
+  calendarSection: {
+    minHeight: 300,
+  },
+  tabletCalendar: {
+    width: 350,
+    marginRight: 16,
+  },
+  tasksSection: {
+    flex: 1,
+  },
+  tabletTasks: {
+    flex: 1,
+  },
+  tasksList: {
+    flex: 1,
   },
   taskList: {
     flex: 1,
     marginTop: 10,
+  },
+  selectedDateHeader: {
+    padding: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+  },
+  selectedDateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  selectedDateSubtitle: {
+    fontSize: 14,
+  },
+  navigationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    flex: 1,
+  },
+  mainContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  rightContent: {
+    flex: 1,
   },
 });
 

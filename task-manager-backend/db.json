@@ -15,6 +15,14 @@
       "name": "Jane Smith",
       "email": "jane@example.com",
       "createdAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "username": "blsnabrhm",
+      "password": "blsnabrhm",
+      "name": "Blesson",
+      "email": "baburaoaptesteam@gmail.com",
+      "createdAt": "2025-09-29T02:43:41.530Z"
     }
   ],
   "tasks": [
@@ -24,7 +32,7 @@
       "completed": false,
       "userId": 1,
       "createdAt": "2025-01-01T10:00:00.000Z",
-      "updatedAt": "2025-01-01T10:00:00.000Z"
+      "updatedAt": "2025-09-29T00:55:01.676Z"
     },
     {
       "id": 2,
@@ -32,7 +40,7 @@
       "completed": true,
       "userId": 1,
       "createdAt": "2025-01-01T11:00:00.000Z",
-      "updatedAt": "2025-01-01T11:30:00.000Z"
+      "updatedAt": "2025-09-29T00:55:00.405Z"
     },
     {
       "id": 3,
@@ -41,8 +49,44 @@
       "userId": 2,
       "createdAt": "2025-01-01T12:00:00.000Z",
       "updatedAt": "2025-01-01T12:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "title": "Give vehicle for servicing",
+      "completed": false,
+      "userId": 3,
+      "createdAt": "2025-09-29T02:46:29.563Z",
+      "updatedAt": "2025-09-29T02:46:34.830Z",
+      "dueDate": "2025-09-29T02:46:27.826Z"
     }
   ],
-  "nextTaskId": 4,
-  "nextUserId": 3
+  "notes": [
+    {
+      "id": 1,
+      "title": "Meeting Notes",
+      "body": "Discussed project timeline and deliverables.\n\nKey points:\n- Q1 deadline confirmed\n- Resource allocation reviewed\n- Next steps defined",
+      "userId": 1,
+      "createdAt": "2025-01-01T13:00:00.000Z",
+      "updatedAt": "2025-01-01T13:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "title": "Ideas for App",
+      "body": "New features to implement:\n1. Dark mode improvements\n2. Better animations\n3. Offline sync\n\nPriority: High",
+      "userId": 1,
+      "createdAt": "2025-01-01T14:00:00.000Z",
+      "updatedAt": "2025-01-01T14:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "title": "Shopping List",
+      "body": "• Milk\n• Bread\n• Eggs\n• Coffee\n• Fruits",
+      "userId": 2,
+      "createdAt": "2025-01-01T15:00:00.000Z",
+      "updatedAt": "2025-01-01T15:00:00.000Z"
+    }
+  ],
+  "nextTaskId": 5,
+  "nextUserId": 4,
+  "nextNoteId": 4
 }

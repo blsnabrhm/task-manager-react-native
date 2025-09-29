@@ -1,5 +1,5 @@
 // src/services/apiService.ts - API Service Layer
-import { Task, ApiResponse, LoginRequest, RegisterRequest, AuthResponse } from '../types';
+import { Task, Note, ApiResponse, LoginRequest, RegisterRequest, AuthResponse } from '../types';
 
 // API configuration
 const API_BASE_URL = 'http://localhost:3001/api'; // Change to your backend URL
@@ -42,13 +42,13 @@ export const getTasks = async (userId: number): Promise<ApiResponse<Task[]>> => 
   return handleResponse(response);
 };
 
-export const createTask = async (title: string, userId: number): Promise<ApiResponse<Task>> => {
+export const createTask = async (title: string, userId: number, dueDate?: string): Promise<ApiResponse<Task>> => {
   const response = await fetch(`${API_BASE_URL}/tasks`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ title, userId }),
+    body: JSON.stringify({ title, userId, dueDate }),
   });
   return handleResponse(response);
 };
@@ -66,6 +66,41 @@ export const updateTask = async (id: number, updates: Partial<Task>, userId: num
 
 export const deleteTask = async (id: number, userId: number): Promise<ApiResponse<Task>> => {
   const response = await fetch(`${API_BASE_URL}/tasks/${id}?userId=${userId}`, {
+    method: 'DELETE',
+  });
+  return handleResponse(response);
+};
+
+// Notes API calls
+export const getNotes = async (userId: number): Promise<ApiResponse<Note[]>> => {
+  const response = await fetch(`${API_BASE_URL}/notes?userId=${userId}`);
+  return handleResponse(response);
+};
+
+export const createNote = async (title: string, body: string, userId: number): Promise<ApiResponse<Note>> => {
+  const response = await fetch(`${API_BASE_URL}/notes`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title, body, userId }),
+  });
+  return handleResponse(response);
+};
+
+export const updateNote = async (id: number, updates: Partial<Note>, userId: number): Promise<ApiResponse<Note>> => {
+  const response = await fetch(`${API_BASE_URL}/notes/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ...updates, userId }),
+  });
+  return handleResponse(response);
+};
+
+export const deleteNote = async (id: number, userId: number): Promise<ApiResponse<Note>> => {
+  const response = await fetch(`${API_BASE_URL}/notes/${id}?userId=${userId}`, {
     method: 'DELETE',
   });
   return handleResponse(response);
