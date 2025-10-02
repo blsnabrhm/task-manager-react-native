@@ -476,6 +476,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Test endpoint for connection checking
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({

@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { Task } from '../types';
@@ -14,11 +16,15 @@ interface CalendarProps {
   tasks: Task[];
   onDateSelect: (date: string) => void;
   selectedDate?: string;
+  showPopup?: boolean; // Controls whether to show popup or just call onDateSelect
 }
 
-const Calendar: React.FC<CalendarProps> = ({ tasks, onDateSelect, selectedDate }) => {
+const Calendar: React.FC<CalendarProps> = ({ tasks, onDateSelect, selectedDate, showPopup = true }) => {
   const { theme } = useTheme();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const [popupDate, setPopupDate] = useState<string | null>(null);
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
 
   const today = new Date();
   const year = currentDate.getFullYear();
@@ -98,6 +104,24 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onDateSelect, selectedDate }
     });
   };
 
+  // Get tasks for a specific date
+  const getTasksForDate = (dateStr: string): Task[] => {
+    return tasks.filter(task => {
+      if (!task.dueDate) return false;
+      const taskDate = new Date(task.dueDate);
+      return formatLocalDate(taskDate) === dateStr;
+    });
+  };
+
+  // Get task count for tooltip
+  const getTaskCountText = (dateStr: string): string => {
+    const tasksForDate = getTasksForDate(dateStr);
+    const count = tasksForDate.length;
+    if (count === 0) return '';
+    if (count === 1) return '1 task';
+    return `${count} tasks`;
+  };
+
   const navigateMonth = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
     if (direction === 'prev') {
@@ -108,9 +132,41 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onDateSelect, selectedDate }
     setCurrentDate(newDate);
   };
 
-  const handleDatePress = (dateStr: string, isCurrentMonth: boolean) => {
-    if (isCurrentMonth) {
+  const handleDatePress = (dateStr: string, isCurrentMonth: boolean, weekIndex: number, dayIndex: number) => {
+    if (isCurrentMonth && hasTasksOnDate(dateStr) && showPopup) {
+      // Show popup only if showPopup prop is true (Dashboard mode)
+      // Calculate position based on grid layout
+      const cellWidth = 32; // Width of each date cell
+      const cellSpacing = 8; // Space between cells
+      const calendarPadding = 16; // Calendar container padding
+      const headerHeight = 100; // Header + week days height
+      const popupWidth = 250;
+      
+      // Calculate initial position
+      let x = calendarPadding + (dayIndex * (cellWidth + cellSpacing)) + (cellWidth / 2);
+      const y = headerHeight + (weekIndex * (cellWidth + cellSpacing)) - 10;
+      
+      // Adjust x position to keep popup on screen (assuming calendar width ~280px)
+      const calendarWidth = 280;
+      if (x - (popupWidth / 2) < 0) {
+        x = popupWidth / 2; // Keep left edge on screen
+      } else if (x + (popupWidth / 2) > calendarWidth) {
+        x = calendarWidth - (popupWidth / 2); // Keep right edge on screen
+      }
+      
+      setPopupPosition({ x, y });
+      setPopupDate(popupDate === dateStr ? null : dateStr);
+    } else if (isCurrentMonth) {
+      // Regular date selection - call onDateSelect for all valid dates
+      // In TasksScreen mode (showPopup=false), this will filter tasks
+      // In Dashboard mode (showPopup=true), this handles dates without tasks
       onDateSelect(dateStr);
+    }
+  };
+
+  const handleDateLongPress = (dateStr: string, isCurrentMonth: boolean) => {
+    if (isCurrentMonth && hasTasksOnDate(dateStr)) {
+      setHoveredDate(hoveredDate === dateStr ? null : dateStr);
     }
   };
 
@@ -162,9 +218,11 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onDateSelect, selectedDate }
                       styles.dateCell,
                       dateObj.isToday && styles.todayCell,
                       isSelected && { backgroundColor: theme.primary },
-                      !dateObj.isCurrentMonth && styles.otherMonthCell
+                      !dateObj.isCurrentMonth && styles.otherMonthCell,
+                      hoveredDate === dateObj.dateStr && { backgroundColor: theme.background.disabled }
                     ]}
-                    onPress={() => handleDatePress(dateObj.dateStr, dateObj.isCurrentMonth)}
+                    onPress={() => handleDatePress(dateObj.dateStr, dateObj.isCurrentMonth, weekIndex, dayIndex)}
+                    onLongPress={() => handleDateLongPress(dateObj.dateStr, dateObj.isCurrentMonth)}
                     disabled={!dateObj.isCurrentMonth}
                   >
                     <Text 
@@ -187,6 +245,69 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onDateSelect, selectedDate }
           ))}
         </View>
       </ScrollView>
+
+      {/* Tooltip for hovered date */}
+      {hoveredDate && (
+        <View style={[styles.tooltip, { backgroundColor: theme.background.card, borderColor: theme.border.light }]}>
+          <Text style={[styles.tooltipText, { color: theme.text.primary }]}>
+            {getTaskCountText(hoveredDate)}
+          </Text>
+        </View>
+      )}
+
+      {/* Popup for clicked date */}
+      {popupDate && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setPopupDate(null)}
+        >
+          <TouchableWithoutFeedback onPress={() => setPopupDate(null)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[
+                  styles.popup, 
+                  { 
+                    backgroundColor: theme.background.card, 
+                    borderColor: theme.border.light,
+                    position: 'absolute',
+                    left: popupPosition.x - 125, // Center the popup (250px width / 2)
+                    top: popupPosition.y
+                  }
+                ]}>
+                  <View style={styles.popupArrow} />
+                  <Text style={[styles.popupTitle, { color: theme.text.primary }]}>
+                    Tasks for {new Date(popupDate).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                  </Text>
+                  <ScrollView style={styles.popupContent}>
+                    {getTasksForDate(popupDate).map((task, index) => (
+                      <View key={task.id} style={[styles.taskItem, { borderBottomColor: theme.border.light }]}>
+                        <View style={[
+                          styles.taskStatus,
+                          { backgroundColor: task.completed ? theme.success : theme.warning || '#FF9500' }
+                        ]} />
+                        <Text style={[
+                          styles.taskTitle,
+                          { 
+                            color: theme.text.primary,
+                            textDecorationLine: task.completed ? 'line-through' : 'none'
+                          }
+                        ]}>
+                          {task.title}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -258,6 +379,79 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
+  },
+  tooltip: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#000',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    zIndex: 1000,
+  },
+  tooltipText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  popup: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    maxHeight: 300,
+    width: 250,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    marginTop: 8, // Space for arrow
+  },
+  popupArrow: {
+    position: 'absolute',
+    top: -8,
+    left: '50%',
+    marginLeft: -8,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#fff',
+  },
+  popupTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  popupContent: {
+    maxHeight: 200,
+  },
+  taskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  taskStatus: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  taskTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

@@ -51,15 +51,6 @@
       "updatedAt": "2025-01-01T12:00:00.000Z"
     },
     {
-      "id": 4,
-      "title": "Give vehicle for servicing",
-      "completed": false,
-      "userId": 3,
-      "createdAt": "2025-09-29T02:46:29.563Z",
-      "updatedAt": "2025-09-29T02:46:34.830Z",
-      "dueDate": "2025-09-29T02:46:27.826Z"
-    },
-    {
       "id": 5,
       "title": "Renew Vehicle Insurance",
       "completed": false,
@@ -67,6 +58,15 @@
       "createdAt": "2025-09-29T07:22:20.446Z",
       "updatedAt": "2025-09-29T07:22:20.446Z",
       "dueDate": "2025-09-29T07:22:19.052Z"
+    },
+    {
+      "id": 11,
+      "title": "Give 2-wheeler for servicing",
+      "completed": false,
+      "userId": 3,
+      "createdAt": "2025-09-29T12:15:15.769Z",
+      "updatedAt": "2025-09-29T12:23:08.410Z",
+      "dueDate": "2025-09-29T12:15:14.339Z"
     }
   ],
   "notes": [
@@ -93,9 +93,25 @@
       "userId": 2,
       "createdAt": "2025-01-01T15:00:00.000Z",
       "updatedAt": "2025-01-01T15:00:00.000Z"
+    },
+    {
+      "id": 5,
+      "title": "The First Note",
+      "body": "Right now the notes are just an experimental concept\n\nNotes should be working fine for now, This looks good\n\n1. This is a simle bullet\n*. this is a not so simple bullet",
+      "userId": 3,
+      "createdAt": "2025-09-29T12:51:45.211Z",
+      "updatedAt": "2025-09-29T12:51:45.211Z"
+    },
+    {
+      "id": 6,
+      "title": "The First Note",
+      "body": "Right now the notes are just an experimental concept\n\nNotes should be working fine for now, This looks good\n\n1. This is a simle bullet\n*. this is a not so simple bullet",
+      "userId": 3,
+      "createdAt": "2025-09-29T12:51:45.760Z",
+      "updatedAt": "2025-09-29T12:51:45.760Z"
     }
   ],
-  "nextTaskId": 6,
+  "nextTaskId": 16,
   "nextUserId": 4,
-  "nextNoteId": 4
+  "nextNoteId": 7
 }

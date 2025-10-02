@@ -10,3 +10,5 @@ export { default as TodaysTasks } from './TodaysTasks';
 export { default as AppTile } from './AppTile';
 export { default as LeftPanel } from './LeftPanel';
 export { default as NoteTile } from './NoteTile';
+export { default as TaskAnalyticsTile } from './TaskAnalyticsTile';
+export { default as NotesAnalyticsTile } from './NotesAnalyticsTile';

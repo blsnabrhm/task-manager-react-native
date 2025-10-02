@@ -20,6 +20,7 @@ export interface TaskItemProps {
   task: Task;
   onToggle: (id: number, completed: boolean) => void;
   onDelete: (id: number) => void;
+  isPendingDelete?: boolean;
 }
 
 export interface LoadingSpinnerProps {

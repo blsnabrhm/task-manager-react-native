@@ -65,10 +65,36 @@ export const updateTask = async (id: number, updates: Partial<Task>, userId: num
 };
 
 export const deleteTask = async (id: number, userId: number): Promise<ApiResponse<Task>> => {
-  const response = await fetch(`${API_BASE_URL}/tasks/${id}?userId=${userId}`, {
-    method: 'DELETE',
-  });
-  return handleResponse(response);
+  const url = `${API_BASE_URL}/tasks/${id}?userId=${userId}`;
+  console.log('Making DELETE request to:', url);
+  
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    console.log('Delete response status:', response.status);
+    console.log('Delete response ok:', response.ok);
+    
+    const data = await response.json();
+    console.log('Delete response data:', data);
+    
+    if (!response.ok) {
+      console.log('Delete failed with error:', data);
+      throw new Error(data.message || `HTTP ${response.status}: Delete failed`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Network error during delete:', error);
+    if (error instanceof TypeError && error.message.includes('Network request failed')) {
+      throw new Error('Cannot connect to server. Please ensure the backend server is running on localhost:3001');
+    }
+    throw error;
+  }
 };
 
 // Notes API calls
@@ -104,4 +130,17 @@ export const deleteNote = async (id: number, userId: number): Promise<ApiRespons
     method: 'DELETE',
   });
   return handleResponse(response);
+};
+
+// Test connection to backend
+export const testConnection = async (): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/test`, {
+      method: 'GET',
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Connection test failed:', error);
+    return false;
+  }
 };

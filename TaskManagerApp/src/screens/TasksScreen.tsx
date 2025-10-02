@@ -8,7 +8,8 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  TouchableOpacity
+  TouchableOpacity,
+  Dimensions
 } from 'react-native';
 import { 
   TaskItem, 
@@ -36,13 +37,18 @@ const TasksScreen: React.FC<TasksScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { triggerSlideIn } = useAnimation();
+  
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [newTaskTitle, setNewTaskTitle] = useState<string>('');
   const [isAddingTask, setIsAddingTask] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
-  const [leftPanelVisible, setLeftPanelVisible] = useState<boolean>(true);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  
+  // Detect mobile device based on screen width and handle orientation changes
+  const [screenData, setScreenData] = useState(Dimensions.get('window'));
+  const [leftPanelVisible, setLeftPanelVisible] = useState<boolean>(screenData.width >= 768); // Expanded on tablets/desktop, collapsed on mobile
 
   useEffect(() => {
     if (user) {
@@ -50,6 +56,18 @@ const TasksScreen: React.FC<TasksScreenProps> = ({ navigation }) => {
     }
     triggerSlideIn('right');
   }, [user, triggerSlideIn]);
+
+  // Handle orientation changes
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenData(window);
+      // Auto-adjust panel visibility based on new screen size
+      const isNowMobile = window.width < 768;
+      setLeftPanelVisible(!isNowMobile);
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   useEffect(() => {
     // Filter tasks based on selected date (using local timezone comparison)
@@ -120,26 +138,34 @@ const TasksScreen: React.FC<TasksScreenProps> = ({ navigation }) => {
   const handleDeleteTask = async (taskId: number): Promise<void> => {
     if (!user) return;
     
-    Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiService.deleteTask(taskId, user.id);
-              setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
-            } catch (error) {
-              console.error('Error deleting task:', error);
-              Alert.alert('Error', 'Failed to delete task. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    // Simple two-tap confirmation: first tap marks for deletion, second tap confirms
+    if (pendingDeleteId === taskId) {
+      // Second tap - actually delete
+      try {
+        console.log('TasksScreen: Deleting task with id:', taskId, 'userId:', user.id);
+        await apiService.deleteTask(taskId, user.id);
+        setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
+        setPendingDeleteId(null);
+        Alert.alert('Success', 'Task deleted successfully!');
+      } catch (error) {
+        console.error('TasksScreen: Error deleting task:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        Alert.alert('Error', `Failed to delete task: ${errorMessage}`);
+        setPendingDeleteId(null);
+      }
+    } else {
+      // First tap - mark for deletion
+      setPendingDeleteId(taskId);
+      Alert.alert('Confirm Delete', 'Tap delete again to confirm removal', [
+        { text: 'No', style: 'cancel', onPress: () => setPendingDeleteId(null) },
+        { text: 'Yes', onPress: () => {} } // Empty onPress, user will tap the button again
+      ]);
+      
+      // Auto-cancel after 5 seconds
+      setTimeout(() => {
+        setPendingDeleteId(null);
+      }, 5000);
+    }
   };
 
   const completedTasksCount = tasks.filter(task => task.completed).length;
@@ -185,6 +211,7 @@ const TasksScreen: React.FC<TasksScreenProps> = ({ navigation }) => {
           selectedDate={selectedDate}
           onToggleTask={handleToggleTaskComplete}
           onDeleteTask={handleDeleteTask}
+          calendarContext="tasks"
         />
 
         {/* Right Content Area */}
@@ -233,6 +260,7 @@ const TasksScreen: React.FC<TasksScreenProps> = ({ navigation }) => {
                     task={item}
                     onToggle={handleToggleTaskComplete}
                     onDelete={handleDeleteTask}
+                    isPendingDelete={pendingDeleteId === item.id}
                   />
                 ))}
                 

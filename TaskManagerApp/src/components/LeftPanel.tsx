@@ -14,6 +14,8 @@ interface LeftPanelProps {
   selectedDate?: string;
   onToggleTask?: (id: number, completed: boolean) => void;
   onDeleteTask?: (id: number) => void;
+  pendingDeleteId?: number | null;
+  calendarContext?: 'tasks' | 'dashboard' | 'notes'; // Context for calendar behavior
 }
 
 const LeftPanel: React.FC<LeftPanelProps> = ({ 
@@ -23,7 +25,9 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   onDateSelect = () => {},
   selectedDate = '',
   onToggleTask = () => {},
-  onDeleteTask = () => {}
+  onDeleteTask = () => {},
+  pendingDeleteId = null,
+  calendarContext = 'dashboard'
 }) => {
   const { theme } = useTheme();
 
@@ -47,18 +51,17 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
               tasks={tasks}
               onDateSelect={onDateSelect}
               selectedDate={selectedDate}
+              showPopup={calendarContext !== 'tasks'} // Don't show popup in TasksScreen
             />
           </View>
 
           {/* Today's Tasks Section */}
           <View style={styles.tasksSection}>
-            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-              Today's Tasks
-            </Text>
             <TodaysTasks 
               tasks={tasks}
               onToggle={onToggleTask}
               onDelete={onDeleteTask}
+              pendingDeleteId={pendingDeleteId}
             />
           </View>
         </View>

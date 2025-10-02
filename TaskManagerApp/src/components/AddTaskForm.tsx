@@ -1,7 +1,6 @@
 // src/components/AddTaskForm.tsx - Add Task Form Component
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, StyleSheet, Modal, Alert, Platform } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { View, TextInput, TouchableOpacity, Text, ActivityIndicator, StyleSheet, Modal, Alert, Platform, ScrollView } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface AddTaskFormProps {
@@ -37,18 +36,27 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
     setShowDatePicker(false);
   };
 
-  const onDateChange = (event: any, selectedDate: Date | undefined) => {
-    setShowNativePicker(false);
-    setShowDatePicker(false);
-    
-    if (selectedDate) {
-      setSelectedDate(selectedDate);
-    }
-  };
-
-  const showNativeDatePicker = () => {
+  const showCustomDatePicker = () => {
     setShowDatePicker(false);
     setShowNativePicker(true);
+  };
+
+  const handleCustomDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setShowNativePicker(false);
+  };
+
+  // Generate next 30 days for custom date selection
+  const getCustomDateOptions = () => {
+    const dates = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
   };
 
   const formatDate = (date: Date) => {
@@ -173,7 +181,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
             {/* Custom Date Option */}
             <TouchableOpacity
               style={[styles.dateOption, { borderColor: theme.border.light, backgroundColor: theme.primary + '10' }]}
-              onPress={showNativeDatePicker}
+              onPress={showCustomDatePicker}
             >
               <Text style={[styles.dateOptionText, { color: theme.primary }]}>📅 Choose Custom Date</Text>
             </TouchableOpacity>
@@ -188,16 +196,51 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
         </View>
       </Modal>
 
-      {/* Native Date Picker */}
-      {showNativePicker && (
-        <DateTimePicker
-          value={selectedDate || new Date()}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          minimumDate={new Date()}
-          onChange={onDateChange}
-        />
-      )}
+      {/* Custom Date Picker Modal */}
+      <Modal
+        visible={showNativePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNativePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.customDateModal, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+              Select Custom Date
+            </Text>
+            
+            <ScrollView style={styles.dateScrollView} showsVerticalScrollIndicator={false}>
+              {getCustomDateOptions().map((date, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.customDateOption, { borderColor: theme.border.light }]}
+                  onPress={() => handleCustomDateSelect(date)}
+                >
+                  <Text style={[styles.customDateText, { color: theme.text.primary }]}>
+                    {date.toLocaleDateString('en-US', { 
+                      weekday: 'short',
+                      month: 'short', 
+                      day: 'numeric',
+                      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                    })}
+                  </Text>
+                  <Text style={[styles.customDateDay, { color: theme.text.secondary }]}>
+                    {index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : 
+                     `${index} day${index > 1 ? 's' : ''} from now`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <TouchableOpacity
+              style={[styles.cancelButton, { backgroundColor: theme.text.muted }]}
+              onPress={() => setShowNativePicker(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -304,6 +347,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  customDateModal: {
+    margin: 20,
+    padding: 20,
+    borderRadius: 12,
+    width: '80%',
+    maxWidth: 300,
+    maxHeight: '70%',
+  },
+  dateScrollView: {
+    maxHeight: 300,
+    marginBottom: 16,
+  },
+  customDateOption: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  customDateText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  customDateDay: {
+    fontSize: 14,
+    fontStyle: 'italic',
   },
 });
 

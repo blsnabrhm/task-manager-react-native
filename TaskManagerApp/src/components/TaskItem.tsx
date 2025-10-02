@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { TaskItemProps } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete, isPendingDelete = false }) => {
   const { theme } = useTheme();
 
   const formatDueDate = (dueDate: string): string => {
@@ -66,11 +66,19 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete }) => {
         </View>
       </TouchableOpacity>
       <TouchableOpacity 
-        style={[styles.deleteButton, { backgroundColor: theme.danger }]}
+        style={[
+          styles.deleteButton, 
+          { 
+            backgroundColor: isPendingDelete ? theme.warning || '#FF9500' : theme.danger,
+            opacity: isPendingDelete ? 1 : 0.8
+          }
+        ]}
         onPress={() => onDelete(task.id)}
         activeOpacity={0.7}
       >
-        <Text style={styles.deleteButtonText}>✕</Text>
+        <Text style={[styles.deleteButtonText, isPendingDelete && { fontSize: 14 }]}>
+          {isPendingDelete ? '✓' : '✕'}
+        </Text>
       </TouchableOpacity>
     </View>
   );

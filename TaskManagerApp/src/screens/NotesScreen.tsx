@@ -38,9 +38,13 @@ const NotesScreen: React.FC<NotesScreenProps> = ({ navigation }) => {
   const [tasks, setTasks] = useState<any[]>([]); // For LeftPanel
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [leftPanelVisible, setLeftPanelVisible] = useState<boolean>(true);
-
-  const screenWidth = Dimensions.get('window').width;
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  
+  // Detect mobile device based on screen width and handle orientation changes
+  const [screenData, setScreenData] = useState(Dimensions.get('window'));
+  const [leftPanelVisible, setLeftPanelVisible] = useState<boolean>(screenData.width >= 768); // Expanded on tablets/desktop, collapsed on mobile
+  
+  const screenWidth = screenData.width;
   const isTablet = screenWidth > 768;
 
   useEffect(() => {
@@ -50,6 +54,18 @@ const NotesScreen: React.FC<NotesScreenProps> = ({ navigation }) => {
     }
     triggerSlideIn('right');
   }, [user, triggerSlideIn]);
+
+  // Handle orientation changes
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenData(window);
+      // Auto-adjust panel visibility based on new screen size
+      const isNowMobile = window.width < 768;
+      setLeftPanelVisible(!isNowMobile);
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   // Refresh notes when screen is focused (simulated)
   useEffect(() => {
@@ -99,29 +115,37 @@ const NotesScreen: React.FC<NotesScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleDeleteNote = (noteId: number) => {
-    Alert.alert(
-      'Delete Note',
-      'Are you sure you want to delete this note?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            if (!user) return;
-            
-            try {
-              await apiService.deleteNote(noteId, user.id);
-              setNotes(prevNotes => prevNotes.filter(note => note.id !== noteId));
-            } catch (error) {
-              console.error('Error deleting note:', error);
-              Alert.alert('Error', 'Failed to delete note. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteNote = async (noteId: number) => {
+    if (!user) return;
+
+    // Simple two-tap confirmation: first tap marks for deletion, second tap confirms
+    if (pendingDeleteId === noteId) {
+      // Second tap - actually delete
+      try {
+        console.log('NotesScreen: Deleting note with id:', noteId, 'userId:', user.id);
+        await apiService.deleteNote(noteId, user.id);
+        setNotes(prevNotes => prevNotes.filter(note => note.id !== noteId));
+        setPendingDeleteId(null);
+        Alert.alert('Success', 'Note deleted successfully!');
+      } catch (error) {
+        console.error('NotesScreen: Error deleting note:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        Alert.alert('Error', `Failed to delete note: ${errorMessage}`);
+        setPendingDeleteId(null);
+      }
+    } else {
+      // First tap - mark for deletion
+      setPendingDeleteId(noteId);
+      Alert.alert('Confirm Delete', 'Tap delete again to confirm removal', [
+        { text: 'No', style: 'cancel', onPress: () => setPendingDeleteId(null) },
+        { text: 'Yes', onPress: () => {} } // Empty onPress, user will tap the button again
+      ]);
+      
+      // Auto-cancel after 5 seconds
+      setTimeout(() => {
+        setPendingDeleteId(null);
+      }, 5000);
+    }
   };
 
   const handleAddNote = () => {
@@ -199,6 +223,7 @@ const NotesScreen: React.FC<NotesScreenProps> = ({ navigation }) => {
           selectedDate={selectedDate}
           onToggleTask={handleToggleTaskComplete}
           onDeleteTask={handleDeleteTask}
+          calendarContext="notes"
         />
 
         {/* Right Content Area */}
